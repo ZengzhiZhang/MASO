@@ -3,13 +3,14 @@
 import os
 import numpy as np
 import pickle
-from geopy.distance import vincenty
+from geopy.distance import geodesic
 import math
 import copy
 import operator
 from functools import reduce
 import gc
-from tkinter import _flatten
+from _tkinter import _flatten
+from GlobalConfig import global_file_path
 
 Wp = Hp = 0.2  # spatial range
 Wm = Hm = 32  # image size
@@ -24,7 +25,7 @@ def calSpeed(pts, label):
     for m in range(len(pts) - 1):
         A = (pts[m][0], pts[m][1])
         B = (pts[m + 1][0], pts[m + 1][1])
-        RDt.append(vincenty(A, B).meters)
+        RDt.append(geodesic(A, B).meters)
         DTt.append((pts[m + 1][2] - pts[m][2]) * 24. * 3600 + 1)
         tempSpeed = RDt[m] / DTt[m]
         if tempSpeed < 0 or tempSpeed > SpeedLimit[label]:
@@ -43,7 +44,7 @@ def calAttr(pts, label):
         A = (pts[m][0], pts[m][1])
         B = (pts[m + 1][0], pts[m + 1][1])
 
-        RDt.append(vincenty(A, B).meters)
+        RDt.append(geodesic(A, B).meters)
         DTt.append((pts[m + 1][2] - pts[m][2]) * 24. * 3600 + 1)
         tempSpeed = RDt[m] / DTt[m]
         if tempSpeed < 0 or tempSpeed > SpeedLimit[label]:
@@ -53,7 +54,7 @@ def calAttr(pts, label):
         a = (pts[m + 1][0], pts[m + 1][1])
         b = (pts[m][0], pts[m + 1][1])
         c = (pts[m + 1][0], pts[m][1])
-        turnRadians = math.atan2(vincenty(a, b).meters, vincenty(a, c).meters)  #
+        turnRadians = math.atan2(geodesic(a, b).meters, geodesic(a, c).meters)  #
         turnDegree = (math.degrees(turnRadians) + 360) % 360
         Turnt.append(turnDegree)
 
@@ -162,11 +163,11 @@ def splitpixelsFeatures(ptsSplit, ptsData, label):
     absDeltaSlst = list(_flatten(absDeltaSlst))
     absDelTurnlst = list(_flatten(absDelTurnlst))
 
-    # if not Speedlist:
-    #     Speedlist.append(0)
-    # if not absDeltaSlst:
-    #     absDeltaSlst.append(0)
-    #     absDelTurnlst.append(0)
+    if not Speedlist:
+        Speedlist.append(0)
+    if not absDeltaSlst:
+        absDeltaSlst.append(0)
+        absDelTurnlst.append(0)
 
     fearesult = [np.mean(Speedlist), np.max(Speedlist), np.min(Speedlist),
                  np.mean(absDeltaSlst), np.max(absDeltaSlst), np.min(absDeltaSlst),
@@ -229,7 +230,7 @@ def calpixelsFeatures(imgPtsData, pts, modes):
 
             AveAbsDelSImg5.append(AveAbsDelSImg)
             MaxAbsDelSImg5.append(MaxAbsDelSImg)
-            MedianAbsDelSImg5.append(MedianAbsDelSImg)  
+            MedianAbsDelSImg5.append(MedianAbsDelSImg)
 
             aveAbsDelTurnImg5.append(aveAbsDelTurnImg)
             maxAbsDelTurnImg5.append(maxAbsDelTurnImg)
@@ -241,14 +242,14 @@ def calpixelsFeatures(imgPtsData, pts, modes):
 
         AveAbsDelSImgs.append(AveAbsDelSImg5)
         MaxAbsDelSImgs.append(MaxAbsDelSImg5)
-        MedianAbsDelSImgs.append(MedianAbsDelSImg5)  
+        MedianAbsDelSImgs.append(MedianAbsDelSImg5)
 
         aveAbsDelTurnImgs.append(aveAbsDelTurnImg5)
         maxAbsDelTurnImgs.append(maxAbsDelTurnImg5)
         medianAbsDelTurnImgs.append(medianAbsDelTurnImg5)
 
     pixelsFea = [AveSImgs, MaxSImgs, MedianSImgs, AveAbsDelSImgs,
-                 MaxAbsDelSImgs, MedianAbsDelSImgs, aveAbsDelTurnImgs, maxAbsDelTurnImgs, medianAbsDelTurnImgs]  
+                 MaxAbsDelSImgs, MedianAbsDelSImgs, aveAbsDelTurnImgs, maxAbsDelTurnImgs, medianAbsDelTurnImgs]
 
     print("------calpiexelsFeatures DONE---------")
     return pixelsFea
@@ -295,8 +296,24 @@ def calInput(features):
     return inputResult
 
 
-allSegmentImage, imgModes, allSegment, modes  # variables form step 3and 4
+# allSegmentImage, imgModes, allSegment, modes # variables form step 3and 4
+with open(global_file_path + 'step2', 'rb') as f:
+    allSegment, imgModes = pickle.load(f)
+with open(global_file_path + 'step3', 'rb') as f:
+    allSegmentImage = pickle.load(f)
 
 pixelFeature = calpixelsFeatures(allSegmentImage, allSegment, imgModes)
 imgFeatures = calInput(pixelFeature)
+
+# with open(global_file_path + 'step4', 'wb') as f:
+#     pickle.dump(imgFeatures, f)
 # Out imgFeatures
+for index, item in enumerate(imgFeatures):
+    fileName = str(index) + '.pickle'
+    with open(global_file_path+'pickle4img/' + fileName, 'wb') as f:
+        pickle.dump(item, f)
+
+for index, item in enumerate(pixelFeature):
+    fileName = str(index) + '.pickle'
+    with open(global_file_path+'pickle4pix/' + fileName, 'wb') as f:
+        pickle.dump(item, f)

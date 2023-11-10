@@ -5,9 +5,10 @@ import numpy as np
 import os
 from datetime import datetime
 import pickle
+from GlobalConfig import global_file_path, global_data_path
 
 os.chdir('/..')
-pathFile = '///'
+pathFile = global_data_path
 
 allFolder = os.listdir(pathFile)
 allFolder.sort()
@@ -31,20 +32,25 @@ def dateConvert(time_str):
 
 
 for folder in allFolder:
-
+    # 遍历文件夹，找到有两个文件的，说明这个轨迹是带标签的
     if len(os.listdir(pathFile + folder)) == 2:
         trajectoryOneUser = []
         # trajectories
         trajectoriesPath = pathFile + folder + '/Trajectory/'
+        # 一个人的所有的轨迹文件 ['20080116073613.plt', '20080117092422.plt']
         allPlt = os.listdir(trajectoriesPath)
         allPlt.sort()
+        # 遍历这个人的所有轨迹文件
         for plt in allPlt:
             print("     *", allPlt.index(plt))
+            # 打开一个plt文件
             with open(trajectoriesPath + plt, 'r', newline='', encoding="utf-8") as f:
+                # 过滤掉非gps数据
                 gpsPoint = filter(lambda x: len(x.split(',')) == 7, f)
                 gpsPointSplit = map(lambda x: x.rstrip('\r\n').split(','), gpsPoint)
                 for row in gpsPointSplit:
                     trajectoryOneUser.append([float(row[0]), float(row[1]), float(row[4])])
+        # [39.9889166666667, 116.305066666667, 39463.3498263889]
         trajectoryOneUser = np.array(trajectoryOneUser)
         trajectoryAllUser.append(trajectoryOneUser)
 
@@ -55,15 +61,18 @@ for folder in allFolder:
             label = list(map(lambda x: x.rstrip('\r\n').split('\t'), f))
             labelSplit = filter(lambda x: len(x) == 3 and x[2] in mode, label)
             for row in labelSplit:
-                labelOneUser.append([dateConvert(row[0]), dateConvert(row[1]), modeIndex[row[2]]])  
+                labelOneUser.append([dateConvert(row[0]), dateConvert(row[1]), modeIndex[row[2]]])
         labelOneUser = np.array(labelOneUser)
+        # [3.95884021e+04 3.95884139e+04 2.00000000e+00]
         labelAllUser.append(labelOneUser)
 
-        # match
+        # 到这里，获取到了一个人如001的所有的轨迹列表和对应的时间范围标签为trajectoryOneUser和labelOneUser
+        # 获取一个人所有的轨迹点的时间
         Dates = np.split(trajectoryOneUser, 3, axis=-1)[2]
         sec = 1 / (24.0 * 3600.0)
         indexNeed = []
         modeFinal = []
+        # 遍历标签列表
         for index, row in enumerate(labelOneUser):
             index1 = np.where(Dates >= (float(row[0]) - sec))
             index2 = np.where(Dates <= (float(row[1]) + sec))
@@ -81,6 +90,9 @@ for folder in allFolder:
         trajectoryLabelAllUser.append(trajectoryLabelOneUser)
     else:
         continue
+
+# Output
+with open(global_file_path + 'step1', 'wb') as f:
+    pickle.dump(trajectoryLabelAllUser, f)
 # print("len", len(trajectoryLabelAllUser))
 # Output trajectoryLabelAllUser
-

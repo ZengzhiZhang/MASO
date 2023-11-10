@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torch import nn
 import numpy as np
@@ -55,11 +57,13 @@ class ResidualBlock(nn.Module):
         out = self.relu(out)
         return out
 
-
+# 属性通道融合
 class AttrChannelFusion(nn.Module):
+    # 初始化参数为 9 、32 、64
     def __init__(self, in_channel, out_channel1, out_channel2, ratio):
         super(AttrChannelFusion, self).__init__()
         self.ShallowConv = nn.Sequential(
+            # 卷积层 输入9通道 输出32通道
             nn.Conv2d(in_channel, out_channel1, 3, 1, 1, bias=False),
             nn.BatchNorm2d(out_channel1),
             nn.LeakyReLU(),
@@ -78,6 +82,7 @@ class AttrChannelFusion(nn.Module):
                 layers.append(ResidualBlock(out1, out1, ksize, 1, True, ratio_value))
         return nn.Sequential(*layers)
 
+    # 输入为多尺度
     def forward(self, x):
         x_conv = self.ShallowConv(x)
         x_d1 = self.pool1(self.d1(x_conv))
@@ -86,21 +91,20 @@ class AttrChannelFusion(nn.Module):
 
 
 def processSamples(dataSample):
-    return dataSample.contiguous().view(-1, dataSample.shape[2], dataSample.shape[3],
-                                        dataSample.shape[4])
+    return dataSample.contiguous().view(-1, dataSample.shape[2], dataSample.shape[3] , dataSample.shape[4])
 
 
-valueFile = r'/..'  # normalized parameters for MASO data: mean and standard deviation
-with open(valueFile, 'rb') as f:
+# valueFile = r'/..'  # normalized parameters for MASO data: mean and standard deviation
+with open('/DevFiles/PyCharm/MASO-MSF/tra-represent/temp-51-100/step4', 'rb') as f:
     normalizeValue = pickle.load(f)
 
 
-def normlize(data, value):  
+def normlize(data, value):
     dataArray = data.cpu().numpy()
     for k in range(len(dataArray[0])):
-        condlist = [dataArray[:, k, :, :] != 0]
-        choicelist = [(dataArray[:, k, :, :] - value[k][0]) / value[k][1]]  # [0]:mean [1]:stand deviation
-        dataArray[:, k, :, :] = np.select(condlist, choicelist)
+        condlist = [dataArray[:,k, :, :] != 0]
+        choicelist = [(dataArray[ :,k, :, :] - value[k][0]) / value[k][1]]  # [0]:mean [1]:stand deviation
+        dataArray[:,k, :, :] = np.select(condlist, choicelist)
         del condlist, choicelist
     result = torch.from_numpy(dataArray).to(DEVICE)
     return result
@@ -134,42 +138,48 @@ def processGlobal(globalfeatures):  # share the global attributes
     expandGlobal = torch.tensor(expandGlobal).type(torch.FloatTensor).to(DEVICE)
     return expandGlobal
 
-
+# 多尺度特征融合和提取
 class mergeScales(nn.Module):
+    #
     def __init__(self, in_channel_scale1, in_channel_scale2, in_channel_scale3, classes, ratio):
         super(mergeScales, self).__init__()
+        # 9通道的数据转化为32通道的数据，由于是三个尺度，因此实例化了三个ACFM模型
         self.moduleForScale1 = AttrChannelFusion(in_channel=in_channel_scale1, out_channel1=32, out_channel2=64,
-                                                 ratio=ratio)  
+                                                 ratio=ratio)
         self.moduleForScale2 = AttrChannelFusion(in_channel=in_channel_scale2, out_channel1=32, out_channel2=64,
-                                                 ratio=ratio) 
+                                                 ratio=ratio)
         self.moduleForScale3 = AttrChannelFusion(in_channel=in_channel_scale3, out_channel1=32, out_channel2=64,
-                                                 ratio=ratio) 
+                                                 ratio=ratio)
+        # 全连接层 用于最后的分类
         self.FCLayerForOut = nn.Sequential(
             nn.Linear(128 * 3 + 36, 32),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(0.5),
             nn.Linear(32, classes)
         )
+        # 全连接层
         self.FCLayerForScale1 = nn.Sequential(
-            nn.Linear(64 * 8 * 8, 512), 
+            nn.Linear(64 * 8 * 8, 512),
             nn.LeakyReLU(inplace=True),
-            nn.Linear(512, 128),  
+            nn.Linear(512, 128),
             nn.LeakyReLU(inplace=True),
         )
         self.FCLayerForScale2 = nn.Sequential(
-            nn.Linear(64 * 8 * 8, 512),  
+            nn.Linear(64 * 8 * 8, 512),
             nn.LeakyReLU(inplace=True),
-            nn.Linear(512, 128),  
+            nn.Linear(512, 128),
             nn.LeakyReLU(inplace=True),
         )
         self.FCLayerForScale3 = nn.Sequential(
-            nn.Linear(64 * 8 * 8, 512),  
+            nn.Linear(64 * 8 * 8, 512),
             nn.LeakyReLU(inplace=True),
-            nn.Linear(512, 128),  
+            nn.Linear(512, 128),
             nn.LeakyReLU(inplace=True),
         )
+
         self.attentionForScales = ScaleAttention()
 
+    # 参数为 9 9 9 5
     def forward(self, x1, x2, x3, x4):
         # For scale1:ACFM
         input1 = normlize(processSamples(x1), normalizeValue)
@@ -220,5 +230,6 @@ class mergeScales(nn.Module):
 
 
 def MASO_MSF(num_channel, num_classes, value_ratio):
+    # 通道数为9，分类数为5
     return mergeScales(in_channel_scale1=num_channel, in_channel_scale2=num_channel, in_channel_scale3=num_channel,
                        classes=num_classes, ratio=value_ratio)

@@ -1,5 +1,7 @@
 # step 2: split trajectory to segments
 import os
+from copy import copy, deepcopy
+
 import numpy as np
 import pickle
 from GlobalConfig import global_file_path
@@ -7,16 +9,19 @@ from GlobalConfig import global_file_path
 os.chdir('/..')
 filename = global_file_path + 'step1'  # from the first step
 AllSegment = []
-AllExtendSegment = []
+
 AllModes = []
-minPoints = 20
+minPoints = 50
 AllsegmentPointsNumber = []
+AllExtendSegmentArray = []
+AllExtendSegmentArrayResult = []
 
 with open(filename, 'rb') as f:
     trajectoryLabelAllUser = pickle.load(f)
 # variable from step 1
 
 for t in range(len(trajectoryLabelAllUser)):
+    AllExtendSegment = []
     Data = trajectoryLabelAllUser[t]
     if len(Data) == 0:
         continue
@@ -92,29 +97,36 @@ for t in range(len(trajectoryLabelAllUser)):
             else:
                 _mode = dataTrip[j][3]
                 dataSegment = [dataTrip[k, 0:4] for k in index]
-                simpleOneTripSegments.append(dataSegment)
+                simpleOneTripSegments.append(deepcopy(dataSegment))
                 dataOneUserSegment.append(dataSegment)
                 index = []
                 modeType = dataTrip[j][3]
                 index.append(j)
                 j += 1
                 continue
-
         # 这一趟交通模式没有发生改变
         if len(index) != 0:
             dataSegment = [dataTrip[k, 0:4] for k in index]
-            simpleOneTripSegments.append(dataSegment)
+            simpleOneTripSegments.append(deepcopy(dataSegment))
             dataOneUserSegment.append(dataSegment)
+
+        if len(dataOneUserSegment) == len(AllExtendSegmentArray) + len(simpleOneTripSegments):
+            print("12312313")
+            if len(AllExtendSegmentArray) > 349:
+                print("123123")
         simpleOneTripSegmentsSize = len(simpleOneTripSegments)
+        simpleOneTripSegmentsTemp = deepcopy(simpleOneTripSegments)
         if simpleOneTripSegmentsSize == 2:
             lSeg = simpleOneTripSegments[0]
             rSeg = simpleOneTripSegments[1]
             lSegTemp = lSeg[len(lSeg) // 5 * 4:]
             rSegTemp = rSeg[:len(rSeg) // 5]
             lSeg.extend(rSegTemp)
-            lSegTemp.extend(rSegTemp)
-            extendOneTripSegments.append(lSeg)
-            extendOneTripSegments.append(lSegTemp)
+            lSegTemp.extend(rSeg)
+            AllExtendSegmentArray.append(lSeg)
+            AllExtendSegmentArray.append(lSegTemp)
+            # extendOneTripSegments.append(lSeg)
+            # extendOneTripSegments.append(lSegTemp)
         elif simpleOneTripSegmentsSize > 2:
             for _i in range(simpleOneTripSegmentsSize):
                 if _i == 0:
@@ -123,38 +135,44 @@ for t in range(len(trajectoryLabelAllUser)):
                     rSeg = simpleOneTripSegments[1]
                     rSegTemp = rSeg[:len(rSeg) // 5]
                     lSeg.extend(rSegTemp)
-                    extendOneTripSegments.append(lSeg)
-                elif _i == simpleOneTripSegmentsSize - 1:
+                    AllExtendSegmentArray.append(lSeg)
+                    # extendOneTripSegments.append(lSeg)
+                if _i == simpleOneTripSegmentsSize - 1:
                     lSeg = simpleOneTripSegments[_i]
-                    rSeg = simpleOneTripSegments[_i-1]
+                    rSeg = simpleOneTripSegments[_i - 1]
                     lSegTemp = lSeg[len(lSeg) // 5 * 4:]
                     lSegTemp.extend(rSeg)
-                    extendOneTripSegments.append(lSegTemp)
-                else:
-                    lSeg = simpleOneTripSegments[_i - 1]
-                    mSeg = simpleOneTripSegments[_i]
-                    rSeg = simpleOneTripSegments[_i + 1]
+                    AllExtendSegmentArray.append(lSegTemp)
+                    # extendOneTripSegments.append(lSegTemp)
+                if _i != simpleOneTripSegmentsSize - 1 and _i != 0:
+                    lSeg = simpleOneTripSegmentsTemp[_i - 1]
+                    mSeg = simpleOneTripSegmentsTemp[_i]
+                    rSeg = simpleOneTripSegmentsTemp[_i + 1]
                     lSegTemp = lSeg[len(lSeg) // 5 * 4:]
-                    lrSegTemp = rSeg[:len(rSeg) // 5]
+                    rSegTemp = rSeg[:len(rSeg) // 5]
                     lSegTemp.extend(mSeg)
-                    lSegTemp.extend(rSeg)
-                    extendOneTripSegments.append(lSegTemp)
+                    lSegTemp.extend(rSegTemp)
+                    AllExtendSegmentArray.append(lSegTemp)
+                    # extendOneTripSegments.append(lSegTemp)
         else:
-            extendOneTripSegments.append(simpleOneTripSegments)
-        dataOneUserExtendSegment.append(extendOneTripSegments)
+            # extendOneTripSegments.append(simpleOneTripSegments)
+            AllExtendSegmentArray.append(simpleOneTripSegments[0])
+        # dataOneUserExtendSegment.append(extendOneTripSegments)
     segmentPointsNumber = []
-    AllExtendSegment.append(dataOneUserExtendSegment)
+    # AllExtendSegment.append(dataOneUserExtendSegment)
+
     for i in range(len(dataOneUserSegment)):
         if len(dataOneUserSegment[i]) >= minPoints:
             segmentPointsNumber.append(len(dataOneUserSegment[i]))
             AllsegmentPointsNumber.append(len(dataOneUserSegment[i]))
             AllSegment.append(dataOneUserSegment[i])
+            AllExtendSegmentArrayResult.append(AllExtendSegmentArray[i])
             AllModes.append(int(dataOneUserSegment[i][0][3]))
     if len(segmentPointsNumber) == 0:
         continue
 # Output
 with open(global_file_path + 'step2', 'wb') as f:
-    pickle.dump([AllSegment, AllModes], f)
+    pickle.dump([AllSegment,AllExtendSegmentArrayResult, AllModes], f)
 
 
 def getAssociatedSegment(trip, index):

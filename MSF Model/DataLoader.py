@@ -10,14 +10,14 @@ import torchvision.transforms as transforms
 
 
 class myDataSet(Data.Dataset):
-    def __init__(self, files, transform=None):
+    def __init__(self, files, transform):
         self.dataFiles = files
         self.transform = transform
 
     def __getitem__(self, index):
         file = open(self.dataFiles[index], 'rb')
         data = pickle.load(file)
- 
+
         data1 = torch.tensor(data[0]).type(torch.FloatTensor)  # scale1 [n*object_k*num_channel*Wm*Hm]
         data2 = torch.tensor(data[1]).type(torch.FloatTensor)  # scale2 [n*object_k*num_channel*Wm*Hm]
         data3 = torch.tensor(data[2]).type(torch.FloatTensor)  # scale3 [n*object_k*num_channel*Wm*Hm]
@@ -35,6 +35,7 @@ class myDataSet(Data.Dataset):
 
 
 def getIndexOfFiles(root, indexs):
+    # root 为根目录 indexs为文件下标
     dataFiles = np.array([x.path for x in os.scandir(root)])
     sortFiles = sorted(dataFiles,
                        key=lambda x: int(re.findall("\d+", x.split("/")[-1].split(".pickle")[0])[0]))
@@ -51,24 +52,28 @@ transform_train = transforms.Compose([
 
 def load_dataset(batch_size):
     # print("------- data START---------")
-    filename = r'/..'#from step 2
-    with open(filename, 'rb') as f:
+    filename = r'D:\DevFiles\PyCharm\MASO-MSF\Data'  # from step 2
+    with open('/DevFiles/PyCharm/MASO-MSF/tra-represent/temp-1-50/step2', 'rb') as f:
         pts, modes = pickle.load(f)
     del pts
     gc.collect()
 
+    # with open('/DevFiles/PyCharm/MASO-MSF/tra-represent/temp-1-50/step4', 'rb') as f:
+    #     ppp = pickle.load(f)
     index = [i for i in range(len(modes))]
     trainX_index, testX_index, trainY, testY = train_test_split(index, modes, test_size=0.2, random_state=1,
                                                                 stratify=modes)  # base on modes,for balance
 
-    sample_roots = r'/..'# sample files, each sample corresponds to one file
+    sample_roots = '/DevFiles/PyCharm/MASO-MSF/tra-represent/temp-1-50/pickle4img'  # sample files, each sample corresponds to one file
+    # 获取到训练文件的路径
     train_index_files = getIndexOfFiles(sample_roots, trainX_index)
     test_index_files = getIndexOfFiles(sample_roots, testX_index)
+
     train_set = myDataSet(train_index_files, transform_train)
     train_iter = Data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True,
                                  num_workers=4)
 
-    test_set = myDataSet(test_index_files)
+    test_set = myDataSet(test_index_files, transform_train)
     test_iter = Data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=True, num_workers=4)
 
     # print("----- Data Done----------")

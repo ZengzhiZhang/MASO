@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 import math
 import gc
-
+from GlobalConfig import global_file_path
 os.chdir('/..')
 
 # scale definition
@@ -46,7 +46,6 @@ def convert2Img(segData):
             offsetX = math.floor(Wm / 2) - math.floor((centerLng - minLng) * Wm / Wp)
             offsetY = math.floor(Hm / 2) - math.floor((centerLat - minLat) * Hm / Hp)
 
-
             oneSegmentImage = [[[] for p in range(Wm)] for t in range(Hm)]
             con = [[0 for p in range(Wm)] for t in range(Hm)]
             recordIndex = [[0 for p in range(Wm)] for t in range(Hm)]
@@ -75,10 +74,12 @@ def convert2Img(segData):
     return imgPoints
 
 
-
-allSegment #variable from step 2
+with open(global_file_path + 'step2', 'rb') as f:
+    allSegment, AllModes = pickle.load(f)
+# variable from step 2
 allSegmentImage = convert2Img(allSegment)
 
+with open(global_file_path + 'step3', 'wb') as f:
+    pickle.dump(allSegmentImage, f)
+
 # Output allSegmentImage
-
-

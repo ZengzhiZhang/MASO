@@ -8,9 +8,10 @@ from DataLoader import load_dataset
 from PrintMetricInformation import printMetrics
 from Test import testModel
 
+# 运行环境为GUP
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 OBJECT_K = 6
-
+# 改变路径
 os.chdir(r'/..')
 
 
@@ -79,18 +80,24 @@ def main():
     if torch.cuda.is_available():
         print("cuda true")
 
+    # 构建模型
     net = MASO_MSF(num_channel, num_classes, value_ratio)
+    # 初始化权重
     net.initialize_weight()
     net = net.to(DEVICE)
 
-    # loadData
+    # 加载数据
     train_iter, test_iter = load_dataset(BATCH_SIZE)
+    # 损失函数
     criterion = nn.CrossEntropyLoss()
+    # 优化器
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(beta_1, beta_2), eps=epsilon,
                                  weight_decay=decay)
 
+    # 训练模型
     record_train, record_test, confusion_data = trainModel(net, train_iter, test_iter, criterion, optimizer, NUM_EPOCHS,
                                                            DEVICE, num_classes)
+    # 打印训练结果
     printMetrics(record_test, confusion_data, num_classes)
 
 
